@@ -1,0 +1,12 @@
+# 整体需忽略部分：
+.DS_Store
+*.sav
+
+
+# 低血糖数据统计需忽略部分：
+低血糖数据统计/Result/.DS_Store
+.vscode/settings.json
+.ipynb_checkpoints/
+.vscode/
+低血糖数据统计/__pycache__/
+
