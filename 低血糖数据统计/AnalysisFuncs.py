@@ -1,5 +1,15 @@
 import numpy as np
 import pandas as pd
+from functools import reduce
+
+
+# XXX:__初步对DataFrame进行筛选（通用）：
+def __FilterDataFrame(df, colKey, **kwargs):
+    # TODO: 其他数据需要处理的情况
+    if kwargs != {}:
+        pass
+    dfResult = df.loc[:, df.columns.str.contains(colKey)]
+    return dfResult
 
 
 # __得出每个Series列（特定区间值在总体中的占比函数）：
@@ -10,15 +20,10 @@ def __GetSeries(df):
     return resultSeries
 
 
-# TODO:__得出最终结果的DataFrame（通用）：
-def __GetResultDataFrame(colNames, colSeries):
-    pass
-
-
-# XXX:特定区间值在总体中的占比函数：
+# 特定区间值在总体中的占比函数：
 def GetRates(df, colKey='三点', low=0, high=5):
-    # 选出所需列：
-    df = df.loc[:, df.columns.str.contains(colKey)]
+    # 选出所用列：
+    df = __FilterDataFrame(df, colKey=colKey)
     # 总记录数：
     colTotal = __GetSeries(df)
     # return df, "Test"
@@ -42,13 +47,31 @@ def GetRates(df, colKey='三点', low=0, high=5):
     return dfResult
 
 
-# TODO: __分组函数（将哪两个列分在同一个组，用于相关性分析）：
-def __GetGroup(df, groupNames):
-    pass
+# XXX: __分组函数（将哪两个列分在同一个组，用于相关性分析）：
+def __GetGroup(df, groupKey):
+    prefixList = [None for _ in range(7)]
+    surfixList = [None]
+
+    def joinList(l):
+        return reduce(lambda x, y: x + y, l)
+
+    groupDict = {
+        "三点":
+        prefixList + joinList([("第%02d组" % i, "第%02d组" % i) + (None, ) * 6
+                               for i in range(1, 18)]) + surfixList,
+        "空腹":
+        prefixList + joinList([("第%02d组" % i, None, "第%02d组" % i) +
+                               (None, ) * 5
+                               for i in range(1, 18)]) + surfixList,
+    }
+    grouped = df.groupby(groupDict[groupKey])
+    return grouped
 
 
 # TODO: 组内受相关数据影响的占比：
-def GetRelativeRate(df, xlow=0, xhigh=5, ylow=0, yhigh=5, group='三点'):
+def GetRelativeRate(df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点'):
+    df = __FilterDataFrame(df, colKey='V')
+    grouped = __GetGroup(df, groupKey=groupKey)
     pass
 
 
@@ -141,3 +164,4 @@ if __name__ == "__main__":
     print("GetRates函数可正常使用。")
 
     # TODO:测试GetRelativeRate函数
+    pass
