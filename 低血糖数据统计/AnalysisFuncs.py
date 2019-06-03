@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from functools import reduce
+import xlwings as xw
 
 
 # XXX:__初步对DataFrame进行筛选（通用）：
@@ -19,7 +20,7 @@ def __GetSeries(data, func='count'):
         'mean': data.mean(),
     }
     detailSeries = funcDict[func]
-    totalSeries = pd.Series(detailSeries.sum(), index=('合计', ))
+    totalSeries = pd.Series(detailSeries.sum(), index=['合计'])
     resultSeries = pd.concat([detailSeries, totalSeries])
     return resultSeries
 
@@ -30,7 +31,6 @@ def GetRates(df, colKey='三点', low=0, high=5):
     df = __FilterDataFrame(df, colKey=colKey)
     # 总记录数：
     colTotal = __GetSeries(df)
-    # return df, "Test"
     # 特定区间内的记录数：
     dfFiltered = df.applymap(
         lambda x: x if (x >= low) & (x < high) else np.nan)
@@ -56,25 +56,26 @@ def __GetGroup(df, groupKey):
     prefixList = [None for _ in range(7)]
     surfixList = [None]
 
-    def joinList(l):
-        return reduce(lambda x, y: x + y, l)
-
     groupDict = {
         "三点":
-        prefixList + joinList([["第%02d组" % i, "第%02d组" % i] + [None] * 6
-                               for i in range(1, 18)]) + surfixList,
+        prefixList + reduce(lambda x, y: x + y,
+                            ([["第%02d组" % i, "第%02d组" % i] + [None] * 6
+                              for i in range(1, 18)])) + surfixList,
         "空腹":
         prefixList +
-        joinList([["第%02d组" % i, None, "第%02d组" % i] + [None] * 5
-                  for i in range(1, 18)]) + surfixList,
+        reduce(lambda x, y: x + y,
+               [["第%02d组" % i, None, "第%02d组" % i] + [None] * 5
+                for i in range(1, 18)]) + surfixList,
     }
-    grouped = df.groupby(groupDict[groupKey])
+    xw.Range('A1') = groupDict[groupKey]
+    grouped = df.groupby(groupDict[groupKey], axis=1)
     return grouped
 
 
 # TODO: 组内受相关数据影响的占比：
 def GetRelativeRate(df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点'):
     df = __FilterDataFrame(df, colKey='V')
+    print(df.head(), len(df.columns))
     grouped = __GetGroup(df, groupKey=groupKey)
     # 应变量数据统计：
     seriesDetailY = grouped.agg(
