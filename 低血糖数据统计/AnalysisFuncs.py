@@ -13,8 +13,12 @@ def __FilterDataFrame(df, colKey, **kwargs):
 
 
 # __得出每个Series列（特定区间值在总体中的占比函数）：
-def __GetSeries(df):
-    detailSeries = df.count()
+def __GetSeries(data, func='count'):
+    funcDict = {
+        'count': data.count(),
+        'mean': data.mean(),
+    }
+    detailSeries = funcDict[func]
     totalSeries = pd.Series(detailSeries.sum(), index=('合计', ))
     resultSeries = pd.concat([detailSeries, totalSeries])
     return resultSeries
@@ -31,7 +35,7 @@ def GetRates(df, colKey='三点', low=0, high=5):
     dfFiltered = df.applymap(
         lambda x: x if (x >= low) & (x < high) else np.nan)
     colFiltered = __GetSeries(dfFiltered)
-    # 比值：
+    # 占比：
     colPCT = (colFiltered / colTotal).map(lambda x: "%.2f" % (100 * x))
     # 结果表列名：
     colNameTotal = "%s总记录" % colKey
@@ -57,12 +61,12 @@ def __GetGroup(df, groupKey):
 
     groupDict = {
         "三点":
-        prefixList + joinList([("第%02d组" % i, "第%02d组" % i) + (None, ) * 6
+        prefixList + joinList([["第%02d组" % i, "第%02d组" % i] + [None] * 6
                                for i in range(1, 18)]) + surfixList,
         "空腹":
-        prefixList + joinList([("第%02d组" % i, None, "第%02d组" % i) +
-                               (None, ) * 5
-                               for i in range(1, 18)]) + surfixList,
+        prefixList +
+        joinList([["第%02d组" % i, None, "第%02d组" % i] + [None] * 5
+                  for i in range(1, 18)]) + surfixList,
     }
     grouped = df.groupby(groupDict[groupKey])
     return grouped
@@ -72,7 +76,29 @@ def __GetGroup(df, groupKey):
 def GetRelativeRate(df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点'):
     df = __FilterDataFrame(df, colKey='V')
     grouped = __GetGroup(df, groupKey=groupKey)
-    pass
+    # 应变量数据统计：
+    seriesDetailY = grouped.agg(
+        lambda x: 1 if x[1] >= ylow and x[1] < yhigh else np.nan)
+    colY = __GetSeries(seriesDetailY)
+    # 自变量数据统计：
+    seriesDetailX = grouped.agg(
+        lambda x: 1 if x[1] >= ylow and x[1] < yhigh and x[0] >= xlow and x[0] < yhigh else np.nan
+    )
+    colX = __GetSeries(seriesDetailX)
+    # 占比：
+    colPCT = (colX / colY).map(lambda x: "%.2f" % (100 * x))
+    # 结果表列名：
+    colNameY = "%.1f≤%s血糖<%.1f" % (ylow, groupKey, yhigh)
+    colNameX = "同时%.1f≤睡前血糖<%.1f" % (xlow, xhigh)
+    colNamePCT = "占比（%）"
+    # 制表：
+    dfResult = pd.DataFrame({
+        colNameY: colY,
+        colNameX: colX,
+        colNamePCT: colPCT,
+    })
+    # 返回结果：
+    return dfResult
 
 
 # TODO: 组内受相关数据影响的平均值：
@@ -164,4 +190,6 @@ if __name__ == "__main__":
     print("GetRates函数可正常使用。")
 
     # TODO:测试GetRelativeRate函数
-    pass
+    dfTestGetRelativeRate = GetRelativeRate(
+        df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点')
+    print(dfTestGetRelativeRate.head())
