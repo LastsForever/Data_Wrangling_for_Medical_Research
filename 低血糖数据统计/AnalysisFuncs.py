@@ -54,20 +54,20 @@ def GetRates(df, colKey='三点', low=0, high=5):
 # XXX: __分组函数（将哪两个列分在同一个组，用于相关性分析）：
 def __GetGroup(df, groupKey):
     prefixList = [None for _ in range(7)]
-    surfixList = [None]
+    # surfixList = [None]
 
     groupDict = {
         "三点":
         prefixList + reduce(lambda x, y: x + y,
                             ([["第%02d组" % i, "第%02d组" % i] + [None] * 6
-                              for i in range(1, 18)])) + surfixList,
+                              for i in range(1, 18)])),
         "空腹":
         prefixList +
         reduce(lambda x, y: x + y,
                [["第%02d组" % i, None, "第%02d组" % i] + [None] * 5
-                for i in range(1, 18)]) + surfixList,
+                for i in range(1, 18)]),
     }
-    xw.Range('A1') = groupDict[groupKey]
+    xw.Range('B1').value = [[x] for x in groupDict[groupKey]]
     grouped = df.groupby(groupDict[groupKey], axis=1)
     return grouped
 
@@ -75,7 +75,7 @@ def __GetGroup(df, groupKey):
 # TODO: 组内受相关数据影响的占比：
 def GetRelativeRate(df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点'):
     df = __FilterDataFrame(df, colKey='V')
-    print(df.head(), len(df.columns))
+    xw.Range('A1').value = [[x] for x in df.columns]
     grouped = __GetGroup(df, groupKey=groupKey)
     # 应变量数据统计：
     seriesDetailY = grouped.agg(
@@ -193,4 +193,5 @@ if __name__ == "__main__":
     # TODO:测试GetRelativeRate函数
     dfTestGetRelativeRate = GetRelativeRate(
         df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点')
-    print(dfTestGetRelativeRate.head())
+    print(dfTestGetRelativeRate)
+    print("GetRelativeRate函数可正常使用。")
