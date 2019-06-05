@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from functools import reduce
-import xlwings as xw
 
 
 # XXX:__初步对DataFrame进行筛选（通用）：
@@ -67,15 +66,13 @@ def __GetGroup(df, groupKey):
                [["第%02d组" % i, None, "第%02d组" % i] + [None] * 5
                 for i in range(1, 18)]),
     }
-    xw.Range('B1').value = [[x] for x in groupDict[groupKey]]
     grouped = df.groupby(groupDict[groupKey], axis=1)
     return grouped
 
 
-# TODO: 组内受相关数据影响的占比：
+# 组内受相关数据影响的占比：
 def GetRelativeRate(df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点'):
     df = __FilterDataFrame(df, colKey='V')
-    xw.Range('A1').value = [[x] for x in df.columns]
     grouped = __GetGroup(df, groupKey=groupKey)
     # 应变量数据统计：
     seriesDetailY = grouped.agg(
@@ -104,11 +101,6 @@ def GetRelativeRate(df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点'):
 
 # TODO: 组内受相关数据影响的平均值：
 def GetRelativeMean(df, low=0, high=5, groups=['三点', '空腹']):
-    pass
-
-
-# TODO: 占比作图(最后再做处理)：
-def DrawPicRate(dfDetails, dfTotal):
     pass
 
 
@@ -190,8 +182,70 @@ if __name__ == "__main__":
     assert dfTestGetRates.to_dict() == dfResultGetRates
     print("GetRates函数可正常使用。")
 
-    # TODO:测试GetRelativeRate函数
+    # 测试GetRelativeRate函数
     dfTestGetRelativeRate = GetRelativeRate(
         df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点')
-    print(dfTestGetRelativeRate)
+    dfResultGetRelativeRates = {
+        '0.0≤三点血糖<5.0': {
+            '合计': 100,
+            '第01组': 6,
+            '第02组': 8,
+            '第03组': 6,
+            '第04组': 4,
+            '第05组': 2,
+            '第06组': 8,
+            '第07组': 10,
+            '第08组': 10,
+            '第09组': 7,
+            '第10组': 8,
+            '第11组': 8,
+            '第12组': 5,
+            '第13组': 3,
+            '第14组': 7,
+            '第15组': 2,
+            '第16组': 4,
+            '第17组': 2
+        },
+        '占比（%）': {
+            '合计': '5.00',
+            '第01组': '0.00',
+            '第02组': '0.00',
+            '第03组': '0.00',
+            '第04组': '25.00',
+            '第05组': '0.00',
+            '第06组': '25.00',
+            '第07组': '0.00',
+            '第08组': '0.00',
+            '第09组': '0.00',
+            '第10组': '0.00',
+            '第11组': '12.50',
+            '第12组': '0.00',
+            '第13组': '33.33',
+            '第14组': '0.00',
+            '第15组': '0.00',
+            '第16组': '0.00',
+            '第17组': '0.00'
+        },
+        '同时0.0≤睡前血糖<5.0': {
+            '合计': 5,
+            '第01组': 0,
+            '第02组': 0,
+            '第03组': 0,
+            '第04组': 1,
+            '第05组': 0,
+            '第06组': 2,
+            '第07组': 0,
+            '第08组': 0,
+            '第09组': 0,
+            '第10组': 0,
+            '第11组': 1,
+            '第12组': 0,
+            '第13组': 1,
+            '第14组': 0,
+            '第15组': 0,
+            '第16组': 0,
+            '第17组': 0
+        }
+    }
+    assert dfTestGetRelativeRate.to_dict() == dfResultGetRelativeRates
     print("GetRelativeRate函数可正常使用。")
