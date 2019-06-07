@@ -3,24 +3,30 @@ import pandas as pd
 from functools import reduce
 
 
-# XXX:__初步对DataFrame进行筛选（通用）：
+# __初步对DataFrame进行筛选（通用）：
 def __FilterDataFrame(df, colKey, **kwargs):
-    # TODO: 其他数据需要处理的情况
-    if kwargs != {}:
-        pass
     dfResult = df.loc[:, df.columns.str.contains(colKey)]
     return dfResult
 
 
 # __得出每个Series列（特定区间值在总体中的占比函数）：
 def __GetSeries(data, func='count'):
-    funcDict = {
-        'count': data.count(),
-        'mean': data.mean(),
-    }
-    detailSeries = funcDict[func]
-    totalSeries = pd.Series(detailSeries.sum(), index=['合计'])
+    # 明细计数：
+    detailCount = data.count()
+    # 计算明细与总计：
+    if func == 'mean':
+        detailSeries = data.mean()
+        totalMean = (detailSeries * detailCount).sum() / detailCount.sum()
+        totalSeries = pd.Series(totalMean, index=['总计'])
+    elif func == 'count':
+        detailSeries = detailCount
+        totalSeries = pd.Series(detailSeries.sum(), index=['总计'])
+    else:
+        raise ValueError(
+            "The argumnet func got an unexpected value: %s" % func)
+    # 合并明细与总计：
     resultSeries = pd.concat([detailSeries, totalSeries])
+    # 返回结果
     return resultSeries
 
 
@@ -99,9 +105,31 @@ def GetRelativeRate(df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点'):
     return dfResult
 
 
-# TODO: 组内受相关数据影响的平均值：
+# 组内受相关数据影响的平均值：
 def GetRelativeMean(df, low=0, high=5, groups=['三点', '空腹']):
-    pass
+    df = __FilterDataFrame(df, colKey='V')
+    # 返回结果用df：
+    dfResult = pd.DataFrame()
+    for groupKey in groups:
+        # 睡前数据：
+        grouped = __GetGroup(df, groupKey=groupKey)
+        # dfResul放入睡前相关数据：
+        if len(dfResult) == 0:
+            seriesBeforeSleep = grouped.agg(
+                lambda x: 1 if x[0] >= low and x[0] < high else np.nan)
+            colX = __GetSeries(seriesBeforeSleep)
+            dataDisplay = {np.inf: "+♾"}
+            colNameX = "%s≤睡前血糖<%s数量" % (dataDisplay.get(low, '%.1f' % low),
+                                         dataDisplay.get(high, '%.1f' % high))
+            dfResult[colNameX] = colX
+        # dfResult放入睡前所影响的数据：
+        seriesDetailY = grouped.agg(
+            lambda x: x[1] if x[0] >= low and x[0] < high else np.nan)
+        colY = __GetSeries(seriesDetailY, func='mean')
+        colNameY = "%s血糖平均值" % groupKey
+        dfResult[colNameY] = colY.map(
+            lambda x: "-" if pd.isna(x) else "%.2f" % x)
+    return dfResult
 
 
 if __name__ == "__main__":
@@ -134,7 +162,7 @@ if __name__ == "__main__":
             'V7三点': 8,
             'V8三点': 10,
             'V9三点': 10,
-            '合计': 101
+            '总计': 101
         },
         '三点总记录': {
             'V10三点': 66,
@@ -155,7 +183,7 @@ if __name__ == "__main__":
             'V7三点': 87,
             'V8三点': 84,
             'V9三点': 72,
-            '合计': 1106
+            '总计': 1106
         },
         '占比（%）': {
             'V10三点': '10.61',
@@ -176,7 +204,7 @@ if __name__ == "__main__":
             'V7三点': '9.20',
             'V8三点': '11.90',
             'V9三点': '13.89',
-            '合计': '9.13'
+            '总计': '9.13'
         }
     }
     assert dfTestGetRates.to_dict() == dfResultGetRates
@@ -187,7 +215,7 @@ if __name__ == "__main__":
         df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点')
     dfResultGetRelativeRates = {
         '0.0≤三点血糖<5.0': {
-            '合计': 100,
+            '总计': 100,
             '第01组': 6,
             '第02组': 8,
             '第03组': 6,
@@ -207,7 +235,7 @@ if __name__ == "__main__":
             '第17组': 2
         },
         '占比（%）': {
-            '合计': '5.00',
+            '总计': '5.00',
             '第01组': '0.00',
             '第02组': '0.00',
             '第03组': '0.00',
@@ -227,7 +255,7 @@ if __name__ == "__main__":
             '第17组': '0.00'
         },
         '同时0.0≤睡前血糖<5.0': {
-            '合计': 5,
+            '总计': 5,
             '第01组': 0,
             '第02组': 0,
             '第03组': 0,
@@ -249,3 +277,6 @@ if __name__ == "__main__":
     }
     assert dfTestGetRelativeRate.to_dict() == dfResultGetRelativeRates
     print("GetRelativeRate函数可正常使用。")
+    # 测试GetRelativeMean函数
+    dfTestGetRelativeMean = GetRelativeMean(df, 0, 5, groups=['三点', '空腹'])
+    print("GetRelativeMean函数可正常使用。")
