@@ -1,11 +1,18 @@
 import numpy as np
 import pandas as pd
+import re
 from functools import reduce
 
 
-# __初步对DataFrame进行筛选（通用）：
-def __FilterDataFrame(df, colKey, **kwargs):
+# XXX:__初步对DataFrame进行筛选（通用）：
+def __FilterDataFrame(df, colKey, drop0=True, **kwargs):
+    # TODO: 其他需要处理的筛选条件（待后续确定）：
+    if kwargs != {}:
+        pass
     dfResult = df.loc[:, df.columns.str.contains(colKey)]
+    # 是否删除存在0值行：
+    if drop0:
+        dfResult = dfResult.drop(dfResult.index[(dfResult == 0).any(axis=1)])
     return dfResult
 
 
@@ -28,6 +35,48 @@ def __GetSeries(data, func='count'):
     resultSeries = pd.concat([detailSeries, totalSeries])
     # 返回结果
     return resultSeries
+
+
+# XXX: __分组函数（将哪两个列分在同一个组，用于相关性分析）：
+def __GetGroup(df, groupKey):
+    prefixList = [None for _ in range(7)]
+    # surfixList = [None]
+
+    groupDict = {
+        "三点":
+        prefixList + reduce(lambda x, y: x + y,
+                            ([["第%02d组" % i, "第%02d组" % i] + [None] * 6
+                              for i in range(1, 18)])),
+        "空腹":
+        prefixList +
+        reduce(lambda x, y: x + y,
+               [["第%02d组" % i, None, "第%02d组" % i] + [None] * 5
+                for i in range(1, 18)]),
+    }
+    grouped = df.groupby(groupDict[groupKey], axis=1)
+    return grouped
+
+
+# 各相关指标聚合：
+def GetAggregation(df, colKeys=['三点', '空腹', '睡前'], aggfunc='mean'):
+    dfResult = pd.DataFrame()
+    dictAggName = {
+        'mean': '平均值',
+        'sum': '总数',
+        'count': '计数',
+    }
+    compiledRegex = re.compile(r'V\d+')
+    for colKey in colKeys:
+        dfFiltered = __FilterDataFrame(df, colKey=colKey)
+        # 整理数据：
+        aggSeries = __GetSeries(dfFiltered, func=aggfunc)
+        aggSeries.rename(
+            lambda x: re.findall(compiledRegex, x)[0] if re.search(compiledRegex, x) else x,
+            inplace=True)
+        # 列名：
+        colName = "%s血糖%s" % (colKey, dictAggName.get(aggfunc, aggfunc))
+        dfResult[colName] = aggSeries.map(lambda x: "%.2f" % x)
+    return dfResult
 
 
 # 特定区间值在总体中的占比函数：
@@ -54,26 +103,6 @@ def GetRates(df, colKey='三点', low=0, high=5):
     })
     # 返回结果：
     return dfResult
-
-
-# XXX: __分组函数（将哪两个列分在同一个组，用于相关性分析）：
-def __GetGroup(df, groupKey):
-    prefixList = [None for _ in range(7)]
-    # surfixList = [None]
-
-    groupDict = {
-        "三点":
-        prefixList + reduce(lambda x, y: x + y,
-                            ([["第%02d组" % i, "第%02d组" % i] + [None] * 6
-                              for i in range(1, 18)])),
-        "空腹":
-        prefixList +
-        reduce(lambda x, y: x + y,
-               [["第%02d组" % i, None, "第%02d组" % i] + [None] * 5
-                for i in range(1, 18)]),
-    }
-    grouped = df.groupby(groupDict[groupKey], axis=1)
-    return grouped
 
 
 # 组内受相关数据影响的占比：
@@ -278,5 +307,139 @@ if __name__ == "__main__":
     assert dfTestGetRelativeRate.to_dict() == dfResultGetRelativeRates
     print("GetRelativeRate函数可正常使用。")
     # 测试GetRelativeMean函数
-    dfTestGetRelativeMean = GetRelativeMean(df, 0, 5, groups=['三点', '空腹'])
+    dfTestGetRelativeMean = GetRelativeMean(
+        df, 0, 5, groups=['三点', '空腹']).to_dict()
+    dfResultGetRelativeMean = {
+        '0.0≤睡前血糖<5.0数量': {
+            '总计': 36,
+            '第01组': 2,
+            '第02组': 2,
+            '第03组': 2,
+            '第04组': 5,
+            '第05组': 5,
+            '第06组': 2,
+            '第07组': 3,
+            '第08组': 1,
+            '第09组': 3,
+            '第10组': 1,
+            '第11组': 1,
+            '第12组': 3,
+            '第13组': 2,
+            '第14组': 1,
+            '第15组': 2,
+            '第16组': 1,
+            '第17组': 0
+        },
+        '三点血糖平均值': {
+            '总计': '6.62',
+            '第01组': '5.45',
+            '第02组': '7.30',
+            '第03组': '6.80',
+            '第04组': '5.60',
+            '第05组': '7.92',
+            '第06组': '4.85',
+            '第07组': '6.17',
+            '第08组': '6.20',
+            '第09组': '7.37',
+            '第10组': '5.10',
+            '第11组': '4.00',
+            '第12组': '5.65',
+            '第13组': '9.65',
+            '第14组': '-',
+            '第15组': '9.40',
+            '第16组': '7.00',
+            '第17组': '-'
+        },
+        '空腹血糖平均值': {
+            '总计': '5.95',
+            '第01组': '7.75',
+            '第02组': '5.60',
+            '第03组': '6.15',
+            '第04组': '4.97',
+            '第05组': '7.98',
+            '第06组': '4.80',
+            '第07组': '5.40',
+            '第08组': '4.00',
+            '第09组': '5.20',
+            '第10组': '5.50',
+            '第11组': '5.40',
+            '第12组': '5.40',
+            '第13组': '7.00',
+            '第14组': '6.30',
+            '第15组': '4.70',
+            '第16组': '6.00',
+            '第17组': '-'
+        }
+    }
+    assert dfTestGetRelativeMean == dfResultGetRelativeMean
     print("GetRelativeMean函数可正常使用。")
+    # 测试GetAggregation函数
+    dfTestGetAggregation = GetAggregation(
+        df, colKeys=['三点', '空腹', '睡前'], aggfunc='mean').to_dict()
+    dfResultGetAggregation = {
+        '三点血糖平均值': {
+            'V1': '6.67',
+            'V10': '7.10',
+            'V11': '6.70',
+            'V12': '6.70',
+            'V13': '6.55',
+            'V14': '6.95',
+            'V15': '6.28',
+            'V16': '6.76',
+            'V17': '6.55',
+            'V18': '7.50',
+            'V2': '7.47',
+            'V3': '7.19',
+            'V4': '7.25',
+            'V5': '6.87',
+            'V6': '7.02',
+            'V7': '6.94',
+            'V8': '6.70',
+            'V9': '6.52',
+            '总计': '6.93'
+        },
+        '睡前血糖平均值': {
+            'V1': '9.88',
+            'V10': '8.19',
+            'V11': '8.59',
+            'V12': '8.69',
+            'V13': '7.96',
+            'V14': '8.29',
+            'V15': '8.48',
+            'V16': '8.12',
+            'V17': '9.26',
+            'V18': '9.26',
+            'V2': '9.09',
+            'V3': '9.31',
+            'V4': '8.75',
+            'V5': '9.03',
+            'V6': '8.80',
+            'V7': '8.58',
+            'V8': '8.48',
+            'V9': '8.28',
+            '总计': '8.80'
+        },
+        '空腹血糖平均值': {
+            'V1': '8.10',
+            'V10': '6.77',
+            'V11': '6.76',
+            'V12': '6.73',
+            'V13': '6.38',
+            'V14': '6.31',
+            'V15': '6.71',
+            'V16': '6.56',
+            'V17': '7.43',
+            'V18': '8.42',
+            'V2': '7.29',
+            'V3': '7.05',
+            'V4': '6.91',
+            'V5': '6.64',
+            'V6': '6.80',
+            'V7': '6.76',
+            'V8': '6.70',
+            'V9': '6.60',
+            '总计': '6.81'
+        }
+    }
+    assert dfTestGetAggregation == dfResultGetAggregation
+    print("GetAggregation函数可正常使用。")
