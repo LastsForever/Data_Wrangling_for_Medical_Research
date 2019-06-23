@@ -90,7 +90,7 @@ def GetRates(df, colKey='三点', low=0, high=5):
         lambda x: x if (x >= low) & (x < high) else np.nan)
     colFiltered = __GetSeries(dfFiltered)
     # 占比：
-    colPCT = (colFiltered / colTotal).map(lambda x: "%.2f" % (100 * x))
+    colPCT = 100 * (colFiltered / colTotal)
     # 结果表列名：
     colNameTotal = "%s总记录" % colKey
     colNameFiltered = "%.1f≤%s<%.1f" % (low, colKey, high)
@@ -101,6 +101,7 @@ def GetRates(df, colKey='三点', low=0, high=5):
         colNameTotal: colTotal,
         colNamePct: colPCT,
     })
+    dfResult = dfResult.applymap(lambda x: "-" if pd.isna(x) else "%.2f" % x)
     # 返回结果：
     return dfResult
 
@@ -119,7 +120,7 @@ def GetRelativeRate(df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点'):
     )
     colX = __GetSeries(seriesDetailX)
     # 占比：
-    colPCT = (colX / colY).map(lambda x: "%.2f" % (100 * x))
+    colPCT = 100 * (colX / colY)
     # 结果表列名：
     colNameY = "%.1f≤%s血糖<%.1f" % (ylow, groupKey, yhigh)
     colNameX = "同时%.1f≤睡前血糖<%.1f" % (xlow, xhigh)
@@ -130,6 +131,7 @@ def GetRelativeRate(df, xlow=0, xhigh=5, ylow=0, yhigh=5, groupKey='三点'):
         colNameX: colX,
         colNamePCT: colPCT,
     })
+    dfResult = dfResult.applymap(lambda x: "-" if pd.isna(x) else "%.2f" % x)
     # 返回结果：
     return dfResult
 
